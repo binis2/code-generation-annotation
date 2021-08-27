@@ -38,6 +38,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+import javax.tools.FileObject;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -72,12 +73,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        var files = new ArrayList<Path>();
+        var files = new ArrayList<String>();
         for (var type : roundEnv.getElementsAnnotatedWith(CodePrototype.class)) {
             try {
-                Path path = Reflection.getFieldValue(Reflection.getFieldValue(type, "sourcefile"), "userPath");
-                log.info("path: {}", path);
-                files.add(path);
+                var source = Reflection.getFieldValue(type, "sourcefile");
+                log.info("Processing: {}", type.getSimpleName());
+                files.add(((FileObject) source).getCharContent(true).toString());
             } catch (Exception e) {
                 log.error("Unable to process {}", type);
             }
@@ -85,7 +86,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
         if (!files.isEmpty()) {
 
-            CodeGen.processFiles(files);
+            CodeGen.processSources(files);
 
             lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
                 if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
