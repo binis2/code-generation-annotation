@@ -20,7 +20,6 @@ package net.binis.codegen.annotation.processor;
  * #L%
  */
 
-import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.printer.PrettyPrinter;
 import com.github.javaparser.printer.PrettyPrinterConfiguration;
@@ -28,7 +27,11 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodePrototype;
+import net.binis.codegen.annotation.builder.CodeBuilder;
+import net.binis.codegen.annotation.builder.CodeQueryBuilder;
+import net.binis.codegen.annotation.builder.CodeValidationBuilder;
 import net.binis.codegen.exception.GenericCodeGenException;
+import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.tools.Reflection;
 
 import javax.annotation.processing.*;
@@ -39,17 +42,16 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.PrintWriter;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.generation.core.Helpers.*;
-import static net.binis.codegen.tools.Tools.nullCheck;
 
 @Slf4j
 @AutoService(Processor.class)
@@ -74,15 +76,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         var files = new ArrayList<String>();
-        for (var type : roundEnv.getElementsAnnotatedWith(CodePrototype.class)) {
-            try {
-                var source = Reflection.getFieldValue(type, "sourcefile");
-                log.info("Processing: {}", type.getSimpleName());
-                files.add(((FileObject) source).getCharContent(true).toString());
-            } catch (Exception e) {
-                log.error("Unable to process {}", type);
-            }
-        }
+        processAnnotation(roundEnv, files, CodePrototype.class);
+        processAnnotation(roundEnv, files, CodeBuilder.class);
+        processAnnotation(roundEnv, files, CodeValidationBuilder.class);
+        processAnnotation(roundEnv, files, CodeQueryBuilder.class);
 
         if (!files.isEmpty()) {
 
@@ -99,6 +96,18 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
 
         return false;
+    }
+
+    private void processAnnotation(RoundEnvironment roundEnv, List<String> files, Class<? extends Annotation> cls) {
+        for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
+            try {
+                var source = Reflection.getFieldValue(type, "sourcefile");
+                log.info("Processing: {}", type.getSimpleName());
+                files.add(((FileObject) source).getCharContent(true).toString());
+            } catch (Exception e) {
+                log.error("Unable to process {}", type);
+            }
+        }
     }
 
     private void saveFile(CompilationUnit unit) {
@@ -130,7 +139,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.of("net.binis.codegen.annotation.CodePrototype");
+        return Set.of("net.binis.codegen.annotation.CodePrototype",
+                "net.binis.codegen.annotation.builder.CodeBuilder",
+                "net.binis.codegen.annotation.builder.CodeQueryBuilder",
+                "net.binis.codegen.annotation.builder.CodeValidationBuilder");
     }
 
     private void error(Element e, String msg, Object... args) {
