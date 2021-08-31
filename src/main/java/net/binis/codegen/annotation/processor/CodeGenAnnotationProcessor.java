@@ -21,8 +21,8 @@ package net.binis.codegen.annotation.processor;
  */
 
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.printer.PrettyPrinter;
-import com.github.javaparser.printer.PrettyPrinterConfiguration;
+import com.github.javaparser.printer.DefaultPrettyPrinter;
+import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
@@ -31,7 +31,6 @@ import net.binis.codegen.annotation.builder.CodeBuilder;
 import net.binis.codegen.annotation.builder.CodeQueryBuilder;
 import net.binis.codegen.annotation.builder.CodeValidationBuilder;
 import net.binis.codegen.exception.GenericCodeGenException;
-import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.tools.Reflection;
 
 import javax.annotation.processing.*;
@@ -63,6 +62,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private Messager messager;
     private Map<String, String> options;
 
+    public CodeGenAnnotationProcessor() {
+        super();
+    }
+
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
@@ -75,24 +78,28 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        var files = new ArrayList<String>();
-        processAnnotation(roundEnv, files, CodePrototype.class);
-        processAnnotation(roundEnv, files, CodeBuilder.class);
-        processAnnotation(roundEnv, files, CodeValidationBuilder.class);
-        processAnnotation(roundEnv, files, CodeQueryBuilder.class);
+        try {
+            var files = new ArrayList<String>();
+            processAnnotation(roundEnv, files, CodePrototype.class);
+            processAnnotation(roundEnv, files, CodeBuilder.class);
+            processAnnotation(roundEnv, files, CodeValidationBuilder.class);
+            processAnnotation(roundEnv, files, CodeQueryBuilder.class);
 
-        if (!files.isEmpty()) {
+            if (!files.isEmpty()) {
 
-            CodeGen.processSources(files);
+                CodeGen.processSources(files);
 
-            lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
-                if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
-                    saveFile(p.getFiles().get(0));
-                }
-                if (p.getProperties().isGenerateInterface()) {
-                    saveFile(p.getFiles().get(1));
-                }
-            });
+                lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
+                    if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
+                        saveFile(p.getFiles().get(0));
+                    }
+                    if (p.getProperties().isGenerateInterface()) {
+                        saveFile(p.getFiles().get(1));
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.error("CodeGenAnnotationProcessor exception!", e);
         }
 
         return false;
@@ -113,8 +120,8 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private void saveFile(CompilationUnit unit) {
         var type = unit.getType(0);
         try {
-            var config = new PrettyPrinterConfiguration();
-            var printer = new PrettyPrinter(config);
+            var config = new DefaultPrinterConfiguration();
+            var printer = new DefaultPrettyPrinter(config);
 
             sortImports(unit);
             if (unit.getType(0).isClassOrInterfaceDeclaration()) {
