@@ -87,6 +87,8 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
             if (!files.isEmpty()) {
 
+                externalLookup(roundEnv);
+
                 CodeGen.processSources(files);
 
                 lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
@@ -103,6 +105,22 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
 
         return false;
+    }
+
+    private void externalLookup(RoundEnvironment roundEnv) {
+        lookup.registerExternalLookup(s -> {
+            var ext = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast).filter(e -> e.getQualifiedName().toString().equals(s)).findFirst();
+            if (ext.isPresent()) {
+                var source = Reflection.getFieldValue(ext.get(), "sourcefile");
+                log.info("Accessing: {}", ext.get().getSimpleName());
+                try {
+                    return ((FileObject) source).getCharContent(true).toString();
+                } catch (Exception ex) {
+                    log.error("Unable to read {}", ext.get());
+                }
+            }
+            return null;
+        });
     }
 
     private void processAnnotation(RoundEnvironment roundEnv, List<String> files, Class<? extends Annotation> cls) {
