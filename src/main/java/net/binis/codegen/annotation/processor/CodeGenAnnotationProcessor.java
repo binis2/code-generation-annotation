@@ -21,8 +21,6 @@ package net.binis.codegen.annotation.processor;
  */
 
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.printer.DefaultPrettyPrinter;
-import com.github.javaparser.printer.configuration.DefaultPrinterConfiguration;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
@@ -31,6 +29,7 @@ import net.binis.codegen.annotation.builder.CodeBuilder;
 import net.binis.codegen.annotation.builder.CodeQueryBuilder;
 import net.binis.codegen.annotation.builder.CodeValidationBuilder;
 import net.binis.codegen.exception.GenericCodeGenException;
+import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
 import net.binis.codegen.tools.Reflection;
 
 import javax.annotation.processing.*;
@@ -138,8 +137,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private void saveFile(CompilationUnit unit) {
         var type = unit.getType(0);
         try {
-            var config = new DefaultPrinterConfiguration();
-            var printer = new DefaultPrettyPrinter(config);
+            var printer = new CodeGenPrettyPrinter();
 
             sortImports(unit);
             if (unit.getType(0).isClassOrInterfaceDeclaration()) {
