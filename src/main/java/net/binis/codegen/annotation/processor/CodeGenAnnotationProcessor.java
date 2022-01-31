@@ -9,9 +9,9 @@ package net.binis.codegen.annotation.processor;
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,6 +40,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
+import javax.tools.StandardLocation;
+import java.io.File;
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -78,32 +80,44 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
-            var files = new ArrayList<String>();
-            processAnnotation(roundEnv, files, CodePrototype.class);
-            processAnnotation(roundEnv, files, CodeBuilder.class);
-            processAnnotation(roundEnv, files, CodeValidationBuilder.class);
-            processAnnotation(roundEnv, files, CodeQueryBuilder.class);
+            if (!processed()) {
+                var files = new ArrayList<String>();
+                processAnnotation(roundEnv, files, CodePrototype.class);
+                processAnnotation(roundEnv, files, CodeBuilder.class);
+                processAnnotation(roundEnv, files, CodeValidationBuilder.class);
+                processAnnotation(roundEnv, files, CodeQueryBuilder.class);
 
-            if (!files.isEmpty()) {
+                if (!files.isEmpty()) {
 
-                externalLookup(roundEnv);
+                    externalLookup(roundEnv);
 
-                CodeGen.processSources(files);
+                    CodeGen.processSources(files);
 
-                lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
-                    if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
-                        saveFile(p.getFiles().get(0));
-                    }
-                    if (p.getProperties().isGenerateInterface()) {
-                        saveFile(p.getFiles().get(1));
-                    }
-                });
+                    lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
+                        if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
+                            saveFile(p.getFiles().get(0));
+                        }
+                        if (p.getProperties().isGenerateInterface()) {
+                            saveFile(p.getFiles().get(1));
+                        }
+                    });
+                }
+            } else {
+                log.info("Prototypes already processed!");
             }
         } catch (Exception e) {
             log.error("CodeGenAnnotationProcessor exception!", e);
         }
 
         return false;
+    }
+
+    private boolean processed() {
+        try {
+            return new File(processingEnv.getFiler().getResource(StandardLocation.CLASS_OUTPUT, "", "codegen.info").getName()).exists();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void externalLookup(RoundEnvironment roundEnv) {
