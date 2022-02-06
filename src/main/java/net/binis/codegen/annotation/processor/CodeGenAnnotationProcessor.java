@@ -29,6 +29,7 @@ import net.binis.codegen.annotation.builder.CodeBuilder;
 import net.binis.codegen.annotation.builder.CodeQueryBuilder;
 import net.binis.codegen.annotation.builder.CodeValidationBuilder;
 import net.binis.codegen.exception.GenericCodeGenException;
+import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
 import net.binis.codegen.tools.Reflection;
 
@@ -41,8 +42,7 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
-import java.io.File;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +52,7 @@ import java.util.Set;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.generation.core.Helpers.*;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
 @AutoService(Processor.class)
@@ -94,11 +95,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                     CodeGen.processSources(files);
 
                     lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
-                        if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
-                            saveFile(p.getFiles().get(0));
-                        }
-                        if (p.getProperties().isGenerateInterface()) {
-                            saveFile(p.getFiles().get(1));
+                        if (isNull(p.getCompiled())) {
+                            if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
+                                saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
+                            }
+                            if (p.getProperties().isGenerateInterface()) {
+                                saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
+                            }
                         }
                     });
                 }
@@ -148,7 +151,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private void saveFile(CompilationUnit unit) {
+    private void saveFile(CompilationUnit unit, String path) {
         var type = unit.getType(0);
         try {
             var printer = new CodeGenPrettyPrinter();
@@ -158,15 +161,54 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 sortClass(unit.getType(0).asClassOrInterfaceDeclaration());
             }
 
-            try (var stream = filer.createSourceFile(type.getFullyQualifiedName().get()).openOutputStream()) {
-                log.info("Writing file - {}", type.getFullyQualifiedName().get());
-                try (var writer = new PrintWriter(stream)) {
-                    writer.write(printer.print(unit));
+            if (isNull(path)) {
+                try (var stream = filer.createSourceFile(type.getFullyQualifiedName().get()).openOutputStream()) {
+                    log.info("Writing file - {}", type.getFullyQualifiedName().get());
+                    try (var writer = new PrintWriter(stream)) {
+                        writer.write(printer.print(unit));
+                    }
                 }
+            } else {
+                unit.getPackageDeclaration().ifPresent(p -> {
+                    var fileName = path + '/' + p.getNameAsString().replace(".", "/") + '/' + unit.getType(0).getNameAsString() + ".java";
+                    log.info("Writing file - {}", fileName);
+                    var f = new File(fileName);
+                    if (f.getParentFile().exists() || f.getParentFile().mkdirs()) {
+                        try {
+                            var writer = new BufferedWriter(new FileWriter(fileName));
+                            writer.write(printer.print(unit));
+                            writer.close();
+                        } catch (IOException e) {
+                            log.error("Unable to open for write file {}", fileName);
+                        }
+                    } else {
+                        log.error("Unable to write file {}", fileName);
+                    }
+                });
             }
         } catch (Exception e) {
             throw new GenericCodeGenException("Unable to save " + type.getFullyQualifiedName().get(), e);
         }
+    }
+
+    private static String getBasePath(PrototypeData properties, boolean implementation) {
+        String result = null;
+
+        if (isNotBlank(properties.getBasePath())) {
+            result = properties.getBasePath();
+        }
+
+        if (implementation) {
+            if (isNotBlank(properties.getImplementationPath())) {
+                result = properties.getImplementationPath();
+            }
+        } else {
+            if (isNotBlank(properties.getInterfacePath())) {
+                result = properties.getInterfacePath();
+            }
+        }
+
+        return result;
     }
 
     @Override
