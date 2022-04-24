@@ -94,7 +94,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
                     CodeGen.processSources(files);
 
-                    lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).forEach(p -> {
+                    lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).filter(p -> !p.isNested() || isNull(p.getParentClassName())).forEach(p -> {
                         if (isNull(p.getCompiled())) {
                             if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
                                 saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
