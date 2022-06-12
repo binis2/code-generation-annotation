@@ -27,6 +27,7 @@ import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodePrototype;
 import net.binis.codegen.annotation.builder.CodeBuilder;
 import net.binis.codegen.annotation.builder.CodeQueryBuilder;
+import net.binis.codegen.annotation.builder.CodeRequest;
 import net.binis.codegen.annotation.builder.CodeValidationBuilder;
 import net.binis.codegen.exception.GenericCodeGenException;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
@@ -87,6 +88,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 processAnnotation(roundEnv, files, CodeBuilder.class);
                 processAnnotation(roundEnv, files, CodeValidationBuilder.class);
                 processAnnotation(roundEnv, files, CodeQueryBuilder.class);
+                processAnnotation(roundEnv, files, CodeRequest.class);
 
                 if (!files.isEmpty()) {
 
@@ -221,7 +223,8 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return Set.of("net.binis.codegen.annotation.CodePrototype",
                 "net.binis.codegen.annotation.builder.CodeBuilder",
                 "net.binis.codegen.annotation.builder.CodeQueryBuilder",
-                "net.binis.codegen.annotation.builder.CodeValidationBuilder");
+                "net.binis.codegen.annotation.builder.CodeValidationBuilder",
+                "net.binis.codegen.annotation.builder.CodeRequest");
     }
 
     private void error(Element e, String msg, Object... args) {
