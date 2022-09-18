@@ -25,6 +25,7 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodePrototype;
+import net.binis.codegen.annotation.EnumPrototype;
 import net.binis.codegen.annotation.builder.CodeBuilder;
 import net.binis.codegen.annotation.builder.CodeQueryBuilder;
 import net.binis.codegen.annotation.builder.CodeRequest;
@@ -89,6 +90,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 processAnnotation(roundEnv, files, CodeValidationBuilder.class);
                 processAnnotation(roundEnv, files, CodeQueryBuilder.class);
                 processAnnotation(roundEnv, files, CodeRequest.class);
+                processAnnotation(roundEnv, files, EnumPrototype.class);
 
                 if (!files.isEmpty()) {
 
@@ -221,6 +223,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     @Override
     public Set<String> getSupportedAnnotationTypes() {
         return Set.of("net.binis.codegen.annotation.CodePrototype",
+                "net.binis.codegen.annotation.EnumPrototype",
                 "net.binis.codegen.annotation.builder.CodeBuilder",
                 "net.binis.codegen.annotation.builder.CodeQueryBuilder",
                 "net.binis.codegen.annotation.builder.CodeValidationBuilder",
