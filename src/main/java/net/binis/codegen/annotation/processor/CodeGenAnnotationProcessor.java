@@ -43,6 +43,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.*;
 import java.lang.annotation.Annotation;
@@ -131,7 +132,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         lookup.registerExternalLookup(s -> {
             var ext = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast).filter(e -> e.getQualifiedName().toString().equals(s)).findFirst();
             if (ext.isPresent()) {
-                var source = Reflection.getFieldValue(ext.get(), "sourcefile");
+                var source = Reflection.getFieldValueUnsafe(ext.get(), "sourcefile");
+                if (isNull(source)) {
+                    source = Reflection.getFieldValue(ext.get(), "sourcefile");
+                }
                 log.info("Accessing: {}", ext.get().getSimpleName());
                 try {
                     return ((FileObject) source).getCharContent(true).toString();
@@ -146,9 +150,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private void processAnnotation(RoundEnvironment roundEnv, List<String> files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
             try {
-                var source = Reflection.getFieldValue(type, "sourcefile");
+                JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
+                if (isNull(source)) {
+                    source = Reflection.getFieldValue(type, "sourcefile");
+                }
                 log.info("Processing: {}", type.getSimpleName());
-                files.add(((FileObject) source).getCharContent(true).toString());
+                files.add(source.getCharContent(true).toString());
             } catch (Exception e) {
                 log.error("Unable to process {}", type);
             }
