@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>dev.binis</groupId>
     <artifactId>code-generator-annotation</artifactId>
-    <version>0.4.3</version>
+    <version>1.0.0</version>
     <name>code-generator-annotation</name>
     <description>Binis Code Generation library Annotation Processor</description>
     <url>https://github.com/binis2/code-generation</url>
@@ -52,7 +52,7 @@
     </scm>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <license.licenseName>apache_v2</license.licenseName>
         <resource.delimiter>@</resource.delimiter>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>dev.binis</groupId>
             <artifactId>code-generator</artifactId>
-            <version>0.4.3</version>
+            <version>1.0.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -173,6 +173,17 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <compilerArgs>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
