@@ -49,6 +49,7 @@ import java.util.*;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.generation.core.Helpers.*;
+import static net.binis.codegen.tools.Tools.with;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
@@ -80,9 +81,9 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             if (!processed()) {
-                processTemplates(roundEnv);
-
                 var files = new ArrayList<String>();
+
+                processTemplates(roundEnv, files);
 
                 discovered.stream().filter(a -> AnnotationDiscoverer.TEMPLATE.equals(a.getType())).forEach(a ->
                         processAnnotation(roundEnv, files, a.getCls()));
@@ -114,9 +115,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return false;
     }
 
-    private void processTemplates(RoundEnvironment roundEnv) {
+    private void processTemplates(RoundEnvironment roundEnv, List<String> files) {
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
-                AnnotationDiscoverer.writeTemplate(filer, element.toString()));
+                with(readElementSource(element), source -> {
+                    CodeGen.processTemplate(element.getSimpleName().toString(), source);
+                    AnnotationDiscoverer.writeTemplate(filer, element.toString());
+                    roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
+                            with(readElementSource(e), files::add));
+                }));
     }
 
     private boolean processed() {
@@ -148,17 +154,22 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     private void processAnnotation(RoundEnvironment roundEnv, List<String> files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
-            try {
-                JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
-                if (isNull(source)) {
-                    source = Reflection.getFieldValue(type, "sourcefile");
-                }
-                log.info("Processing: {}", type.getSimpleName());
-                files.add(source.getCharContent(true).toString());
-            } catch (Exception e) {
-                log.error("Unable to process {}", type);
-            }
+            with(readElementSource(type), files::add);
         }
+    }
+
+    private static String readElementSource(Element type) {
+        try {
+            JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
+            if (isNull(source)) {
+                source = Reflection.getFieldValue(type, "sourcefile");
+            }
+            log.info("Processing: {}", type.getSimpleName());
+            return source.getCharContent(true).toString();
+        } catch (Exception e) {
+            log.error("Unable to process {}", type);
+        }
+        return null;
     }
 
     private void saveFile(CompilationUnit unit, String path) {
