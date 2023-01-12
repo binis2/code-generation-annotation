@@ -24,8 +24,10 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
+import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
+import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
 import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
@@ -61,7 +63,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private Filer filer;
     private Messager messager;
     private Map<String, String> options;
-    private List<AnnotationDiscoverer.DiscoveredAnnotation> discovered;
+    private List<Discoverer.DiscoveredService> discovered;
 
     public CodeGenAnnotationProcessor() {
         super();
@@ -77,16 +79,18 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         options = processingEnv.getOptions();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             if (!processed()) {
                 var files = new ArrayList<String>();
 
+                processConfigs(roundEnv, files);
                 processTemplates(roundEnv, files);
 
                 discovered.stream().filter(a -> AnnotationDiscoverer.TEMPLATE.equals(a.getType())).forEach(a ->
-                        processAnnotation(roundEnv, files, a.getCls()));
+                        processAnnotation(roundEnv, files, (Class) a.getCls()));
 
                 if (!files.isEmpty()) {
 
@@ -124,6 +128,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                             with(readElementSource(e), files::add));
                 }));
     }
+
+    private void processConfigs(RoundEnvironment roundEnv, List<String> files) {
+        roundEnv.getElementsAnnotatedWith(CodeConfiguration.class).forEach(element ->
+                AnnotationDiscoverer.writeConfig(filer, element.toString()));
+    }
+
 
     private boolean processed() {
         try {
@@ -237,13 +247,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return SourceVersion.latestSupported();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Set<String> getSupportedAnnotationTypes() {
         var result = new HashSet<String>();
         discovered = AnnotationDiscoverer.findAnnotations();
         discovered.forEach(a -> {
             result.add(a.getName());
-            Structures.registerTemplate(a.getCls());
+            Structures.registerTemplate((Class) a.getCls());
         });
         result.add(CodePrototypeTemplate.class.getCanonicalName());
         return result;
