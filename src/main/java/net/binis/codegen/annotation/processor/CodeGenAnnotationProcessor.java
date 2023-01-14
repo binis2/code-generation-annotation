@@ -252,11 +252,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     public Set<String> getSupportedAnnotationTypes() {
         var result = new HashSet<String>();
         discovered = AnnotationDiscoverer.findAnnotations();
-        discovered.forEach(a -> {
+        discovered.stream().filter(Discoverer.DiscoveredService::isTemplate).forEach(a -> {
             result.add(a.getName());
-            Structures.registerTemplate((Class) a.getCls());
+            Structures.registerTemplate(a.getCls());
         });
         result.add(CodePrototypeTemplate.class.getCanonicalName());
+        result.add(CodeConfiguration.class.getCanonicalName());
         return result;
     }
 
