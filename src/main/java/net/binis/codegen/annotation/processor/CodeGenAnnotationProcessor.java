@@ -21,6 +21,7 @@ package net.binis.codegen.annotation.processor;
  */
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
@@ -31,6 +32,7 @@ import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
 import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
+import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
 import net.binis.codegen.tools.Reflection;
 
@@ -77,6 +79,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         filer = processingEnv.getFiler();
         messager = processingEnv.getMessager();
         options = processingEnv.getOptions();
+        lookup.setProcessingEnvironment(processingEnv);
     }
 
     @SuppressWarnings("unchecked")
@@ -86,10 +89,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             if (!processed()) {
                 var files = new ArrayList<String>();
 
-                processConfigs(roundEnv, files);
+                processConfigs(roundEnv);
                 processTemplates(roundEnv, files);
 
-                discovered.stream().filter(a -> AnnotationDiscoverer.TEMPLATE.equals(a.getType())).forEach(a ->
+                discovered.stream().filter(a -> Discoverer.TEMPLATE.equals(a.getType())).forEach(a ->
                         processAnnotation(roundEnv, files, (Class) a.getCls()));
 
                 if (!files.isEmpty()) {
@@ -98,16 +101,11 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
                     CodeGen.processSources(files);
 
-                    lookup.parsed().stream().filter(v -> nonNull(v.getFiles())).filter(p -> !p.isNested() || isNull(p.getParentClassName())).forEach(p -> {
-                        if (isNull(p.getCompiled())) {
-                            if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
-                                saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
-                            }
-                            if (p.getProperties().isGenerateInterface()) {
-                                saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
-                            }
-                        }
-                    });
+                    lookup.parsed().stream()
+                            .filter(PrototypeDescription::isProcessed)
+                            .filter(p -> !p.isNested() || isNull(p.getParentClassName()))
+                            .forEach(this::saveParsed);
+                    lookup.custom().forEach(this::saveParsed);
                 }
             } else {
                 log.info("Prototypes already processed!");
@@ -117,6 +115,17 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
 
         return false;
+    }
+
+    private void saveParsed(PrototypeDescription<ClassOrInterfaceDeclaration> p) {
+        if (isNull(p.getCompiled())) {
+            if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
+                saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
+            }
+            if (p.getProperties().isGenerateInterface()) {
+                saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
+            }
+        }
     }
 
     private void processTemplates(RoundEnvironment roundEnv, List<String> files) {
@@ -129,7 +138,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 }));
     }
 
-    private void processConfigs(RoundEnvironment roundEnv, List<String> files) {
+    private void processConfigs(RoundEnvironment roundEnv) {
         roundEnv.getElementsAnnotatedWith(CodeConfiguration.class).forEach(element ->
                 AnnotationDiscoverer.writeConfig(filer, element.toString()));
     }
@@ -183,42 +192,44 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     }
 
     private void saveFile(CompilationUnit unit, String path) {
-        var type = unit.getType(0);
-        try {
-            var printer = new CodeGenPrettyPrinter();
+        if (nonNull(unit)) {
+            var type = unit.getType(0);
+            try {
+                var printer = new CodeGenPrettyPrinter();
 
-            sortImports(unit);
-            if (unit.getType(0).isClassOrInterfaceDeclaration()) {
-                sortClass(unit.getType(0).asClassOrInterfaceDeclaration());
-            }
-
-            if (isNull(path)) {
-                try (var stream = filer.createSourceFile(type.getFullyQualifiedName().get()).openOutputStream()) {
-                    log.info("Writing file - {}", type.getFullyQualifiedName().get());
-                    try (var writer = new PrintWriter(stream)) {
-                        writer.write(printer.print(unit));
-                    }
+                sortImports(unit);
+                if (unit.getType(0).isClassOrInterfaceDeclaration()) {
+                    sortClass(unit.getType(0).asClassOrInterfaceDeclaration());
                 }
-            } else {
-                unit.getPackageDeclaration().ifPresent(p -> {
-                    var fileName = path + '/' + p.getNameAsString().replace(".", "/") + '/' + unit.getType(0).getNameAsString() + ".java";
-                    log.info("Writing file - {}", fileName);
-                    var f = new File(fileName);
-                    if (f.getParentFile().exists() || f.getParentFile().mkdirs()) {
-                        try {
-                            var writer = new BufferedWriter(new FileWriter(fileName));
+
+                if (isNull(path)) {
+                    try (var stream = filer.createSourceFile(type.getFullyQualifiedName().get()).openOutputStream()) {
+                        log.info("Writing file - {}", type.getFullyQualifiedName().get());
+                        try (var writer = new PrintWriter(stream)) {
                             writer.write(printer.print(unit));
-                            writer.close();
-                        } catch (IOException e) {
-                            log.error("Unable to open for write file {}", fileName);
                         }
-                    } else {
-                        log.error("Unable to write file {}", fileName);
                     }
-                });
+                } else {
+                    unit.getPackageDeclaration().ifPresent(p -> {
+                        var fileName = path + '/' + p.getNameAsString().replace(".", "/") + '/' + unit.getType(0).getNameAsString() + ".java";
+                        log.info("Writing file - {}", fileName);
+                        var f = new File(fileName);
+                        if (f.getParentFile().exists() || f.getParentFile().mkdirs()) {
+                            try {
+                                var writer = new BufferedWriter(new FileWriter(fileName));
+                                writer.write(printer.print(unit));
+                                writer.close();
+                            } catch (IOException e) {
+                                log.error("Unable to open for write file {}", fileName);
+                            }
+                        } else {
+                            log.error("Unable to write file {}", fileName);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                throw new GenericCodeGenException("Unable to save " + type.getFullyQualifiedName().get(), e);
             }
-        } catch (Exception e) {
-            throw new GenericCodeGenException("Unable to save " + type.getFullyQualifiedName().get(), e);
         }
     }
 
@@ -247,7 +258,6 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return SourceVersion.latestSupported();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public Set<String> getSupportedAnnotationTypes() {
         var result = new HashSet<String>();
