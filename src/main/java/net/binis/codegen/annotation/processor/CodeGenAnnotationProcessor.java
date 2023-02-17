@@ -30,6 +30,7 @@ import net.binis.codegen.annotation.CodePrototypeTemplate;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
+import net.binis.codegen.factory.CodeFactory;
 import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
@@ -53,6 +54,7 @@ import java.util.*;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.generation.core.Helpers.*;
+import static net.binis.codegen.tools.Reflection.loadClass;
 import static net.binis.codegen.tools.Tools.with;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -108,7 +110,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                     lookup.custom().forEach(this::saveParsed);
                 }
             } else {
-                log.info("Prototypes already processed!");
+                log.debug("Prototypes already processed!");
             }
         } catch (Exception e) {
             log.error("CodeGenAnnotationProcessor exception!", e);
@@ -145,6 +147,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
 
     private boolean processed() {
+        var cls = loadClass("net.binis.codegen.test.BaseCodeGenTest");
+        if (nonNull(cls)) {
+            if (nonNull(CodeFactory.create(cls))) {
+                return true;
+            }
+        }
+
         try {
             return new File(processingEnv.getFiler().getResource(StandardLocation.CLASS_OUTPUT, "", "codegen.info").getName()).exists();
         } catch (Exception e) {
