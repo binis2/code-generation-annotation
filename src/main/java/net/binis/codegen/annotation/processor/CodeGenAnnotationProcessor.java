@@ -35,6 +35,7 @@ import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
+import net.binis.codegen.objects.Pair;
 import net.binis.codegen.tools.Reflection;
 
 import javax.annotation.processing.*;
@@ -89,7 +90,9 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             if (!processed()) {
-                var files = new ArrayList<String>();
+                lookup.setRoundEnvironment(roundEnv);
+
+                var files = new ArrayList<Pair<String, Element>>();
 
                 processConfigs(roundEnv);
                 processTemplates(roundEnv, files);
@@ -130,13 +133,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private void processTemplates(RoundEnvironment roundEnv, List<String> files) {
+    private void processTemplates(RoundEnvironment roundEnv, List<Pair<String, Element>> files) {
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
                 with(readElementSource(element), source -> {
                     CodeGen.processTemplate(element.getSimpleName().toString(), source);
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
-                            with(readElementSource(e), files::add));
+                            with(readElementSource(e), s ->
+                                    files.add(Pair.of(s, element))));
                 }));
     }
 
@@ -180,9 +184,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         });
     }
 
-    private void processAnnotation(RoundEnvironment roundEnv, List<String> files, Class<? extends Annotation> cls) {
+    private void processAnnotation(RoundEnvironment roundEnv, List<Pair<String, Element>> files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
-            with(readElementSource(type), files::add);
+            with(readElementSource(type), source ->
+                    files.add(Pair.of(source, type)));
         }
     }
 
