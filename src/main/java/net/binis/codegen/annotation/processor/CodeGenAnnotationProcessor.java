@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
+import net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
@@ -54,6 +55,7 @@ import java.util.*;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
+import static net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
 import static net.binis.codegen.generation.core.Helpers.*;
 import static net.binis.codegen.tools.Reflection.loadClass;
 import static net.binis.codegen.tools.Tools.with;
@@ -69,6 +71,11 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     private Messager messager;
     private Map<String, String> options;
     private List<Discoverer.DiscoveredService> discovered;
+
+    {
+        addOpensForCodeGen();
+        CodeFactory.registerType(ProcessingEnvironment.class, params -> CodeGenAnnotationProcessorUtils.getJavacProcessingEnvironment(lookup.getProcessingEnvironment(), lookup.getProcessingEnvironment()));
+    }
 
     public CodeGenAnnotationProcessor() {
         super();
