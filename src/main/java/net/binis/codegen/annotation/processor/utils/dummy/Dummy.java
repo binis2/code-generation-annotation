@@ -20,13 +20,23 @@ package net.binis.codegen.annotation.processor.utils.dummy;
  * #L%
  */
 
-import java.io.OutputStream;
+import net.binis.codegen.annotation.type.EmbeddedModifierType;
 
-@SuppressWarnings("all")
-public class Parent {
-	boolean first;
-	static final Object staticObj = OutputStream.class;
-	volatile Object second;
-	private static volatile boolean staticSecond;
-	private static volatile boolean staticThird;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Dummy {
+    boolean bool();
+    int integer();
+    long lng();
+    short shrt();
+    double dbl();
+    float flt();
+    byte byt();
+    char chr();
+    Class cls();
+    EmbeddedModifierType typ();
+    int[] ints();
 }
+

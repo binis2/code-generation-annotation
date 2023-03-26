@@ -137,6 +137,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             if (p.getProperties().isGenerateInterface()) {
                 saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
             }
+            p.getCustomFiles().forEach((name, file) -> {
+                if (nonNull(file.getJavaClass())) {
+                    saveFile(file.getJavaClass().findCompilationUnit().get(), getBasePath(p.getProperties(), true));
+                }
+                //TODO: Save non java custom files.
+            });
         }
     }
 

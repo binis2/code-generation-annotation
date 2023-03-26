@@ -1,5 +1,25 @@
 package net.binis.codegen.annotation.processor.utils;
 
+/*-
+ * #%L
+ * code-generator-annotation
+ * %%
+ * Copyright (C) 2021 - 2023 Binis Belev
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
+
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.annotation.processor.CodeGenAnnotationProcessor;
 import net.binis.codegen.annotation.processor.utils.dummy.Parent;
@@ -8,12 +28,12 @@ import sun.misc.Unsafe;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.Diagnostic;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 import static java.util.Objects.nonNull;
+import static net.binis.codegen.tools.Reflection.getUnsafe;
 import static net.binis.codegen.tools.Reflection.loadClass;
 
 @Slf4j
@@ -27,9 +47,9 @@ public class CodeGenAnnotationProcessorUtils {
             return; //jdk8-; this is not needed.
         }
 
-        Unsafe unsafe = getUnsafe();
-        Object jdkCompilerModule = getJdkCompilerModule();
-        Object ownModule = getOwnModule();
+        var unsafe = getUnsafe();
+        var jdkCompilerModule = getJdkCompilerModule();
+        var ownModule = getOwnModule();
         String[] allPkgs = {
                 "com.sun.tools.javac.code",
                 "com.sun.tools.javac.comp",
@@ -63,16 +83,6 @@ public class CodeGenAnnotationProcessorUtils {
         } catch (SecurityException e) {
             // can't happen
             throw new RuntimeException(e);
-        }
-    }
-
-    private static Unsafe getUnsafe() {
-        try {
-            Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
-            theUnsafe.setAccessible(true);
-            return (Unsafe) theUnsafe.get(null);
-        } catch (Exception e) {
-            return null;
         }
     }
 
