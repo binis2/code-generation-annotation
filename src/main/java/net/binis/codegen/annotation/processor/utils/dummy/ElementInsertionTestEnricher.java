@@ -23,13 +23,16 @@ package net.binis.codegen.annotation.processor.utils.dummy;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.annotation.CodePrototype;
+import net.binis.codegen.annotation.Default;
 import net.binis.codegen.annotation.type.EmbeddedModifierType;
 import net.binis.codegen.annotation.type.GenerationStrategy;
 import net.binis.codegen.compiler.utils.ElementUtils;
 import net.binis.codegen.enrich.handler.base.BaseEnricher;
+import net.binis.codegen.generation.core.interfaces.MethodDescription;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import static net.binis.codegen.tools.Reflection.loadClass;
 
@@ -60,6 +63,17 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
     }
 
     @Override
+    public void enrichMethod(MethodDescription method) {
+        ElementUtils.addMethodAnnotation(method.getElement(), lombok.Generated.class, Map.of());
+        ElementUtils.removeMethodAnnotation(method.getElement(), CodePrototype.class);
+
+        ElementUtils.replaceMethodAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
+
+        if (method.getMethod().getNameAsString().equals("method2")) {
+            ElementUtils.addMethodAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
+        }
+    }
+
     public int order() {
         return 0;
     }
