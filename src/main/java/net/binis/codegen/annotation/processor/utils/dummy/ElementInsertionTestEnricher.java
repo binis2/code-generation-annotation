@@ -41,10 +41,10 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
 
     @Override
     public void enrich(PrototypeDescription<ClassOrInterfaceDeclaration> description) {
-        ElementUtils.removeClassAnnotation(description.getElement(), Dummy.class);
-        ElementUtils.addClassAnnotationAttribute(description.getElement(), CodePrototype.class, "strategy", GenerationStrategy.IMPLEMENTATION);
-        ElementUtils.removeClassAnnotationAttribute(description.getElement(), CodePrototype.class, "interfaceName");
-        ElementUtils.replaceClassAnnotationAttribute(description.getElement(), CodePrototype.class, "classGetters", false);
+        ElementUtils.removeAnnotation(description.getElement(), Dummy.class);
+        ElementUtils.addAnnotationAttribute(description.getElement(), CodePrototype.class, "strategy", GenerationStrategy.IMPLEMENTATION);
+        ElementUtils.removeAnnotationAttribute(description.getElement(), CodePrototype.class, "interfaceName");
+        ElementUtils.replaceAnnotationAttribute(description.getElement(), CodePrototype.class, "classGetters", false);
 
         var map = new HashMap<String, Object>();
         map.put("bool", true);
@@ -59,18 +59,18 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
         map.put("typ", EmbeddedModifierType.BOTH);
         map.put("ints", new int[] {1, 2, 3, 4, 5});
 
-        ElementUtils.addClassAnnotation(description.getElement(), Dummy.class, map);
+        ElementUtils.addAnnotation(description.getElement(), Dummy.class, map);
     }
 
     @Override
     public void enrichMethod(MethodDescription method) {
-        ElementUtils.addMethodAnnotation(method.getElement(), lombok.Generated.class, Map.of());
-        ElementUtils.removeMethodAnnotation(method.getElement(), CodePrototype.class);
+        ElementUtils.addAnnotation(method.getElement(), lombok.Generated.class, Map.of());
+        ElementUtils.removeAnnotation(method.getElement(), CodePrototype.class);
 
-        ElementUtils.replaceMethodAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
+        ElementUtils.replaceAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
 
         if (method.getMethod().getNameAsString().equals("method2")) {
-            ElementUtils.addMethodAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
+            ElementUtils.addAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
         }
     }
 

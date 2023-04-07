@@ -154,7 +154,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
                             with(readElementSource(e), s ->
-                                    files.add(Pair.of(s, element))));
+                                    files.add(Pair.of(s, e))));
                 }));
     }
 
