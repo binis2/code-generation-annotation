@@ -66,14 +66,14 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 @AutoService(Processor.class)
 public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
-    private Types typeUtils;
-    private Elements elementUtils;
-    private Filer filer;
-    private Messager messager;
-    private Map<String, String> options;
-    private List<Discoverer.DiscoveredService> discovered;
+    protected Types typeUtils;
+    protected Elements elementUtils;
+    protected Filer filer;
+    protected Messager messager;
+    protected Map<String, String> options;
+    protected List<Discoverer.DiscoveredService> discovered;
 
-    {
+    static {
         addOpensForCodeGen();
         CodeFactory.registerType(ProcessingEnvironment.class, params -> CodeGenAnnotationProcessorUtils.getJavacProcessingEnvironment(lookup.getProcessingEnvironment(), lookup.getProcessingEnvironment()));
     }

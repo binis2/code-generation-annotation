@@ -26,14 +26,18 @@ import net.binis.codegen.annotation.CodePrototype;
 import net.binis.codegen.annotation.Default;
 import net.binis.codegen.annotation.type.EmbeddedModifierType;
 import net.binis.codegen.annotation.type.GenerationStrategy;
-import net.binis.codegen.compiler.utils.ElementUtils;
+import net.binis.codegen.compiler.utils.ElementAnnotationUtils;
+import net.binis.codegen.compiler.utils.ElementFieldUtils;
+import net.binis.codegen.compiler.utils.ElementMethodUtils;
 import net.binis.codegen.enrich.handler.base.BaseEnricher;
 import net.binis.codegen.generation.core.interfaces.MethodDescription;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
+import static java.lang.reflect.Modifier.*;
 import static net.binis.codegen.tools.Reflection.loadClass;
 
 @Slf4j
@@ -41,10 +45,16 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
 
     @Override
     public void enrich(PrototypeDescription<ClassOrInterfaceDeclaration> description) {
-        ElementUtils.removeAnnotation(description.getElement(), Dummy.class);
-        ElementUtils.addAnnotationAttribute(description.getElement(), CodePrototype.class, "strategy", GenerationStrategy.IMPLEMENTATION);
-        ElementUtils.removeAnnotationAttribute(description.getElement(), CodePrototype.class, "interfaceName");
-        ElementUtils.replaceAnnotationAttribute(description.getElement(), CodePrototype.class, "classGetters", false);
+        var factoryMethod = ElementMethodUtils.createStaticMethodInvocation(Logger.class, "getLogger",
+                ElementMethodUtils.createClassMethodInvocation(description.getElement().getSimpleName().toString(), "getName"));
+        var field = ElementFieldUtils.addField(description.getElement(), "logg", Logger.class, PUBLIC | STATIC | FINAL, factoryMethod);
+        log.info("Added field: {}", field);
+
+
+        ElementAnnotationUtils.removeAnnotation(description.getElement(), Dummy.class);
+        ElementAnnotationUtils.addAnnotationAttribute(description.getElement(), CodePrototype.class, "strategy", GenerationStrategy.IMPLEMENTATION);
+        ElementAnnotationUtils.removeAnnotationAttribute(description.getElement(), CodePrototype.class, "interfaceName");
+        ElementAnnotationUtils.replaceAnnotationAttribute(description.getElement(), CodePrototype.class, "classGetters", false);
 
         var map = new HashMap<String, Object>();
         map.put("bool", true);
@@ -59,18 +69,18 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
         map.put("typ", EmbeddedModifierType.BOTH);
         map.put("ints", new int[] {1, 2, 3, 4, 5});
 
-        ElementUtils.addAnnotation(description.getElement(), Dummy.class, map);
+        ElementAnnotationUtils.addAnnotation(description.getElement(), Dummy.class, map);
     }
 
     @Override
     public void enrichMethod(MethodDescription method) {
-        ElementUtils.addAnnotation(method.getElement(), lombok.Generated.class, Map.of());
-        ElementUtils.removeAnnotation(method.getElement(), CodePrototype.class);
+        ElementAnnotationUtils.addAnnotation(method.getElement(), lombok.Generated.class, Map.of());
+        ElementAnnotationUtils.removeAnnotation(method.getElement(), CodePrototype.class);
 
-        ElementUtils.replaceAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
+        ElementAnnotationUtils.replaceAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
 
         if (method.getMethod().getNameAsString().equals("method2")) {
-            ElementUtils.addAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
+            ElementAnnotationUtils.addAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
         }
     }
 
