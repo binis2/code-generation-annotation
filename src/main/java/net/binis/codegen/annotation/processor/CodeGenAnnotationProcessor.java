@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
+import net.binis.codegen.generation.core.Parsables;
 import net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
@@ -36,7 +37,6 @@ import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
-import net.binis.codegen.objects.Pair;
 import net.binis.codegen.tools.Reflection;
 
 import javax.annotation.processing.*;
@@ -58,7 +58,9 @@ import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
 import static net.binis.codegen.generation.core.Helpers.*;
+import static net.binis.codegen.generation.core.Structures.defaultProperties;
 import static net.binis.codegen.tools.Reflection.loadClass;
+import static net.binis.codegen.tools.Tools.in;
 import static net.binis.codegen.tools.Tools.with;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -100,13 +102,16 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             if (!processed()) {
                 lookup.setRoundEnvironment(roundEnv);
 
-                var files = new ArrayList<Pair<String, Element>>();
+                var files = Parsables.create();
 
                 processConfigs(roundEnv);
                 processTemplates(roundEnv, files);
 
-                discovered.stream().filter(a -> Discoverer.TEMPLATE.equals(a.getType())).forEach(a ->
-                        processAnnotation(roundEnv, files, (Class) a.getCls()));
+                defaultProperties.keySet().stream()
+                        .map(Reflection::loadClass)
+                        .filter(Objects::nonNull)
+                        .forEach(cls ->
+                                processAnnotation(roundEnv, files, (Class) cls));
 
                 if (!files.isEmpty()) {
 
@@ -147,14 +152,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private void processTemplates(RoundEnvironment roundEnv, List<Pair<String, Element>> files) {
+    private void processTemplates(RoundEnvironment roundEnv, Parsables files) {
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
                 with(readElementSource(element), source -> {
                     CodeGen.processTemplate(element.getSimpleName().toString(), source);
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
                             with(readElementSource(e), s ->
-                                    files.add(Pair.of(s, e))));
+                                    files.file(s).add(e)));
                 }));
     }
 
@@ -198,17 +203,15 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         });
     }
 
-    private void processAnnotation(RoundEnvironment roundEnv, List<Pair<String, Element>> files, Class<? extends Annotation> cls) {
+    private void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
             with(readElementSource(type), source ->
-                    files.add(Pair.of(source, type)));
+                    files.file(source).add(type));
         }
     }
 
-    private static String readElementSource(Element type) {
-        if (ElementKind.METHOD.equals(type.getKind())) {
-            type = type.getEnclosingElement();
-        }
+    private static String readElementSource(Element eType) {
+        var type = findClassType(eType);
         try {
             JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
             if (isNull(source)) {
@@ -218,6 +221,17 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             return source.getCharContent(true).toString();
         } catch (Exception e) {
             log.error("Unable to process {}", type);
+        }
+        return null;
+    }
+
+    private static Element findClassType(Element type) {
+        if (in(type.getKind(), ElementKind.CLASS, ElementKind.INTERFACE, ElementKind.ANNOTATION_TYPE, ElementKind.ENUM)) {
+            return type;
+        }
+        type = type.getEnclosingElement();
+        if (nonNull(type)) {
+            return findClassType(type);
         }
         return null;
     }
@@ -291,12 +305,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        var result = new HashSet<String>();
         discovered = AnnotationDiscoverer.findAnnotations();
-        discovered.stream().filter(Discoverer.DiscoveredService::isTemplate).forEach(a -> {
-            result.add(a.getName());
-            Structures.registerTemplate(a.getCls());
-        });
+        discovered.stream().filter(Discoverer.DiscoveredService::isTemplate).forEach(a ->
+                Structures.registerTemplate(a.getCls()));
+        var result = new HashSet<>(defaultProperties.keySet());
         result.add(CodePrototypeTemplate.class.getCanonicalName());
         result.add(CodeConfiguration.class.getCanonicalName());
         return result;

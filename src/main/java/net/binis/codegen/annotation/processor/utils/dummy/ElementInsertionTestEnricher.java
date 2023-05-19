@@ -30,7 +30,7 @@ import net.binis.codegen.compiler.utils.ElementAnnotationUtils;
 import net.binis.codegen.compiler.utils.ElementFieldUtils;
 import net.binis.codegen.compiler.utils.ElementMethodUtils;
 import net.binis.codegen.enrich.handler.base.BaseEnricher;
-import net.binis.codegen.generation.core.interfaces.MethodDescription;
+import net.binis.codegen.generation.core.interfaces.ElementDescription;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 
 import java.util.HashMap;
@@ -49,7 +49,6 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
                 ElementMethodUtils.createClassMethodInvocation(description.getElement().getSimpleName().toString(), "getName"));
         var field = ElementFieldUtils.addField(description.getElement(), "logg", Logger.class, PUBLIC | STATIC | FINAL, factoryMethod);
         log.info("Added field: {}", field);
-
 
         ElementAnnotationUtils.removeAnnotation(description.getElement(), Dummy.class);
         ElementAnnotationUtils.addAnnotationAttribute(description.getElement(), CodePrototype.class, "strategy", GenerationStrategy.IMPLEMENTATION);
@@ -73,14 +72,14 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
     }
 
     @Override
-    public void enrichMethod(MethodDescription method) {
-        ElementAnnotationUtils.addAnnotation(method.getElement(), lombok.Generated.class, Map.of());
-        ElementAnnotationUtils.removeAnnotation(method.getElement(), CodePrototype.class);
+    public void enrichElement(ElementDescription element) {
+        ElementAnnotationUtils.addAnnotation(element.getElement(), lombok.Generated.class, Map.of());
+        ElementAnnotationUtils.removeAnnotation(element.getElement(), CodePrototype.class);
 
-        ElementAnnotationUtils.replaceAnnotationAttribute(method.getElement(), Default.class, "value", "zxc");
+        ElementAnnotationUtils.replaceAnnotationAttribute(element.getElement(), Default.class, "value", "zxc");
 
-        if (method.getMethod().getNameAsString().equals("method2")) {
-            ElementAnnotationUtils.addAnnotation(method.getElement(), Default.class, Map.of("value", "rty"));
+        if (element.getElement().getSimpleName().toString().equals("method2")) {
+            ElementAnnotationUtils.addAnnotation(element.getElement(), Default.class, Map.of("value", "rty"));
         }
     }
 
