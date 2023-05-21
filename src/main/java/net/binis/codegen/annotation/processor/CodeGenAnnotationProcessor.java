@@ -119,11 +119,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
                     CodeGen.processSources(files);
 
-                    lookup.parsed().stream()
-                            .filter(PrototypeDescription::isProcessed)
-                            .filter(p -> !p.isNested() || isNull(p.getParentClassName()))
-                            .forEach(this::saveParsed);
-                    lookup.custom().forEach(this::saveParsed);
+                    if (!isElementTest()) {
+                        lookup.parsed().stream()
+                                .filter(PrototypeDescription::isProcessed)
+                                .filter(p -> !p.isNested() || isNull(p.getParentClassName()))
+                                .forEach(this::saveParsed);
+                        lookup.custom().forEach(this::saveParsed);
+                    }
                 }
             } else {
                 log.debug("Prototypes already processed!");
@@ -135,7 +137,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return false;
     }
 
-    private void saveParsed(PrototypeDescription<ClassOrInterfaceDeclaration> p) {
+    protected void saveParsed(PrototypeDescription<ClassOrInterfaceDeclaration> p) {
         if (isNull(p.getCompiled())) {
             if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
                 saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
@@ -152,7 +154,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private void processTemplates(RoundEnvironment roundEnv, Parsables files) {
+    protected void processTemplates(RoundEnvironment roundEnv, Parsables files) {
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
                 with(readElementSource(element), source -> {
                     CodeGen.processTemplate(element.getSimpleName().toString(), source);
@@ -163,18 +165,15 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 }));
     }
 
-    private void processConfigs(RoundEnvironment roundEnv) {
+    protected void processConfigs(RoundEnvironment roundEnv) {
         roundEnv.getElementsAnnotatedWith(CodeConfiguration.class).forEach(element ->
                 AnnotationDiscoverer.writeConfig(filer, element.toString()));
     }
 
 
-    private boolean processed() {
-        var cls = loadClass("net.binis.codegen.test.BaseCodeGenTest");
-        if (nonNull(cls)) {
-            if (nonNull(CodeFactory.create(cls))) {
-                return true;
-            }
+    protected boolean processed() {
+        if (isPrototypeTest()) {
+            return true;
         }
 
         try {
@@ -184,7 +183,28 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private void externalLookup(RoundEnvironment roundEnv) {
+    protected static boolean isPrototypeTest() {
+        var cls = loadClass("net.binis.codegen.test.BaseCodeGenTest");
+        if (nonNull(cls)) {
+            if (nonNull(CodeFactory.create(cls))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected static boolean isElementTest() {
+        var cls = loadClass("net.binis.codegen.test.BaseCodeGenElementTest");
+        if (nonNull(cls)) {
+            if (nonNull(CodeFactory.create(cls))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    protected void externalLookup(RoundEnvironment roundEnv) {
         lookup.registerExternalLookup(s -> {
             var ext = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast).filter(e -> e.getQualifiedName().toString().equals(s)).findFirst();
             if (ext.isPresent()) {
@@ -203,14 +223,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         });
     }
 
-    private void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
+    protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
             with(readElementSource(type), source ->
                     files.file(source).add(type));
         }
     }
 
-    private static String readElementSource(Element eType) {
+    protected static String readElementSource(Element eType) {
         var type = findClassType(eType);
         try {
             JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
@@ -225,7 +245,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return null;
     }
 
-    private static Element findClassType(Element type) {
+    protected static Element findClassType(Element type) {
         if (in(type.getKind(), ElementKind.CLASS, ElementKind.INTERFACE, ElementKind.ANNOTATION_TYPE, ElementKind.ENUM)) {
             return type;
         }
@@ -236,7 +256,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return null;
     }
 
-    private void saveFile(CompilationUnit unit, String path) {
+    protected void saveFile(CompilationUnit unit, String path) {
         if (nonNull(unit)) {
             var type = unit.getType(0);
             try {
@@ -278,7 +298,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private static String getBasePath(PrototypeData properties, boolean implementation) {
+    protected static String getBasePath(PrototypeData properties, boolean implementation) {
         String result = null;
 
         if (isNotBlank(properties.getBasePath())) {
@@ -314,7 +334,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return result;
     }
 
-    private void error(Element e, String msg, Object... args) {
+    protected void error(Element e, String msg, Object... args) {
         messager.printMessage(
                 Diagnostic.Kind.ERROR,
                 String.format(msg, args),
