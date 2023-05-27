@@ -237,7 +237,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             if (isNull(source)) {
                 source = Reflection.getFieldValue(type, "sourcefile");
             }
-            log.info("Processing: {}", type.getSimpleName());
+            log.info("Processing: {} ({}: {})", type.getSimpleName(), eType.getKind(), eType.getSimpleName().toString());
             return source.getCharContent(true).toString();
         } catch (Exception e) {
             log.error("Unable to process {}", type);
