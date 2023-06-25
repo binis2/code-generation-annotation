@@ -32,6 +32,7 @@ import net.binis.codegen.compiler.utils.ElementMethodUtils;
 import net.binis.codegen.enrich.handler.base.BaseEnricher;
 import net.binis.codegen.generation.core.interfaces.ElementDescription;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
+import net.binis.codegen.utils.dummy.Dummy;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -28,7 +28,7 @@ import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
 import net.binis.codegen.generation.core.Parsables;
-import net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils;
+import net.binis.codegen.utils.CodeGenAnnotationProcessorUtils;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
@@ -56,7 +56,7 @@ import java.util.*;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
-import static net.binis.codegen.annotation.processor.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
+import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
 import static net.binis.codegen.generation.core.Helpers.*;
 import static net.binis.codegen.generation.core.Structures.defaultProperties;
 import static net.binis.codegen.tools.Reflection.loadClass;
@@ -76,7 +76,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected List<Discoverer.DiscoveredService> discovered;
 
     static {
-        addOpensForCodeGen();
+        addOpensForCodeGen(CodeGenAnnotationProcessor.class);
         CodeFactory.registerType(ProcessingEnvironment.class, params -> CodeGenAnnotationProcessorUtils.getJavacProcessingEnvironment(lookup.getProcessingEnvironment(), lookup.getProcessingEnvironment()));
     }
 
@@ -86,6 +86,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
+        log.info("Initializing CodeGenAnnotationProcessor...");
         super.init(processingEnv);
         typeUtils = processingEnv.getTypeUtils();
         elementUtils = processingEnv.getElementUtils();
