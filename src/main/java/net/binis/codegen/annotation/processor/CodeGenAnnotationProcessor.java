@@ -76,7 +76,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected List<Discoverer.DiscoveredService> discovered;
 
     static {
-        addOpensForCodeGen(CodeGenAnnotationProcessor.class);
+        addOpensForCodeGen(true);
         CodeFactory.registerType(ProcessingEnvironment.class, params -> CodeGenAnnotationProcessorUtils.getJavacProcessingEnvironment(lookup.getProcessingEnvironment(), lookup.getProcessingEnvironment()));
     }
 
