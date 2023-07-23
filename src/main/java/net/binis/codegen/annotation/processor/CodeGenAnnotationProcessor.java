@@ -27,17 +27,17 @@ import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
-import net.binis.codegen.generation.core.Parsables;
-import net.binis.codegen.utils.CodeGenAnnotationProcessorUtils;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
 import net.binis.codegen.factory.CodeFactory;
+import net.binis.codegen.generation.core.Parsables;
 import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
 import net.binis.codegen.tools.Reflection;
+import net.binis.codegen.utils.CodeGenAnnotationProcessorUtils;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -56,12 +56,12 @@ import java.util.*;
 
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
-import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
 import static net.binis.codegen.generation.core.Helpers.*;
 import static net.binis.codegen.generation.core.Structures.defaultProperties;
 import static net.binis.codegen.tools.Reflection.loadClass;
 import static net.binis.codegen.tools.Tools.in;
 import static net.binis.codegen.tools.Tools.with;
+import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
