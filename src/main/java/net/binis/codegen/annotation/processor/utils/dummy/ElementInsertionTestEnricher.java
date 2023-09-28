@@ -48,7 +48,7 @@ public class ElementInsertionTestEnricher extends BaseEnricher {
     public void enrich(PrototypeDescription<ClassOrInterfaceDeclaration> description) {
         var factoryMethod = ElementMethodUtils.createStaticMethodInvocation(Logger.class, "getLogger",
                 ElementMethodUtils.createClassMethodInvocation(description.getElement().getSimpleName().toString(), "getName"));
-        var field = ElementFieldUtils.addField(description.getElement(), "logg", Logger.class, PUBLIC | STATIC | FINAL, factoryMethod);
+        var field = ElementFieldUtils.addField(description.getElement(), "log", Logger.class, PUBLIC | STATIC | FINAL, factoryMethod);
         log.info("Added field: {}", field);
 
         ElementAnnotationUtils.removeAnnotation(description.getElement(), Dummy.class);
