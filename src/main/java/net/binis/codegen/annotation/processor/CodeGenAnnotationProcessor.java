@@ -157,12 +157,12 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     protected void processTemplates(RoundEnvironment roundEnv, Parsables files) {
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
-                with(readElementSource(element), source -> {
+                with(readElementSource(element, null), source -> {
                     CodeGen.processTemplate(element.getSimpleName().toString(), source);
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
-                            with(readElementSource(e), s ->
-                                    files.file(s).add(e)));
+                            with(readElementSource(e, element), s ->
+                                    files.file(s).add(e, element)));
                 }));
     }
 
@@ -226,24 +226,32 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
-            with(readElementSource(type), source ->
-                    files.file(source).add(type));
+            with(readElementSource(type, cls), source ->
+                    files.file(source).add(type, cls));
         }
     }
 
-    protected static String readElementSource(Element eType) {
+    protected static String readElementSource(Element eType, Object annotation) {
         var type = findClassType(eType);
         try {
             JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
             if (isNull(source)) {
                 source = Reflection.getFieldValue(type, "sourcefile");
             }
-            log.info("Processing: {} ({}: {})", type.getSimpleName(), eType.getKind(), eType.getSimpleName().toString());
+            log.info("Processing: {} ({}: {}{})", type.getSimpleName(), eType.getKind(), eType.getSimpleName().toString(), nonNull(annotation) ? " - @" + calcAnnotationName(annotation) : "");
             return source.getCharContent(true).toString();
         } catch (Exception e) {
             log.error("Unable to process {}", type);
         }
         return null;
+    }
+
+    protected static String calcAnnotationName(Object annotation) {
+        if (annotation instanceof Class cls) {
+            return cls.getSimpleName();
+        } else {
+            return "unknown";
+        }
     }
 
     protected static Element findClassType(Element type) {
