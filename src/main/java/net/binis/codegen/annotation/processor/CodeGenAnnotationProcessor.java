@@ -21,12 +21,14 @@ package net.binis.codegen.annotation.processor;
  */
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.AnnotationDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
 import net.binis.codegen.annotation.CodePrototypeTemplate;
+import net.binis.codegen.compiler.CGSymbol;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
 import net.binis.codegen.exception.GenericCodeGenException;
@@ -36,6 +38,8 @@ import net.binis.codegen.generation.core.Structures;
 import net.binis.codegen.generation.core.interfaces.PrototypeData;
 import net.binis.codegen.generation.core.interfaces.PrototypeDescription;
 import net.binis.codegen.javaparser.CodeGenPrettyPrinter;
+import net.binis.codegen.objects.Pair;
+import net.binis.codegen.tools.Holder;
 import net.binis.codegen.tools.Reflection;
 import net.binis.codegen.utils.CodeGenAnnotationProcessorUtils;
 
@@ -102,6 +106,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         try {
             if (!processed()) {
                 lookup.setRoundEnvironment(roundEnv);
+                externalLookup(roundEnv);
 
                 var files = Parsables.create();
 
@@ -115,8 +120,6 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                                 processAnnotation(roundEnv, files, (Class) cls));
 
                 if (!files.isEmpty()) {
-
-                    externalLookup(roundEnv);
 
                     CodeGen.processSources(files);
 
@@ -156,14 +159,85 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     }
 
     protected void processTemplates(RoundEnvironment roundEnv, Parsables files) {
+        var templates = new LinkedHashMap<String, Pair<CompilationUnit, Boolean>>();
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
                 with(readElementSource(element, null), source -> {
-                    CodeGen.processTemplate(element.getSimpleName().toString(), source);
+                    var result = lookup.getParser().parse(source);
+                    if (result.isSuccessful()) {
+                        templates.put(element.toString(), Pair.of(result.getResult().get(), true));
+                    } else {
+                        log.error("Failed template processing ({}) with:", element.toString());
+                        result.getProblems().forEach(p ->
+                                log.error("    {}:{} {}", p.getCause().map(Object::toString).orElse(""), p.getMessage(), p.getLocation().map(Object::toString).orElse("")));
+                    }
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
                             with(readElementSource(e, element), s ->
                                     files.file(s).add(e, element)));
                 }));
+
+        var shouldBreak = Holder.of(false);
+        var lastRun = -1;
+        var passes = Holder.of(0);
+        while (!templates.isEmpty()) {
+            if (lastRun == templates.size()) {
+                if (passes.get() > 2) {
+                    break;
+                } else {
+                    passes.set(passes.get() + 1);
+                }
+            } else {
+                lastRun = templates.size();
+                passes.set(0);
+            }
+            for (var entry : templates.entrySet()) {
+                var ann = entry.getValue().getKey().getChildNodes().stream()
+                        .filter(AnnotationDeclaration.class::isInstance)
+                        .map(AnnotationDeclaration.class::cast)
+                        .filter(c ->
+                                c.getFullyQualifiedName().filter(templates::containsKey).isPresent())
+                        .findFirst();
+                if (ann.isPresent()) {
+                    if (ann.get().getAnnotations().stream()
+                            .map(a -> getExternalClassName(ann.get(), a.getNameAsString()))
+                            .noneMatch(name -> {
+                                var pair = templates.get(name);
+                                if (nonNull(pair)) {
+                                    return passes.get() < 2 || pair.getValue();
+                                } else {
+                                    if (!defaultProperties.containsKey(name)) {
+                                        var ext = lookup.findExternal(name);
+                                        if (nonNull(ext)) {
+                                            templates.put(name, Pair.of(ext.getDeclarationUnit(), false));
+                                            shouldBreak.set(true);
+                                            return true;
+                                        }
+                                    } else if (!entry.getValue().getValue()) {
+                                        entry.setValue(Pair.of(entry.getValue().getKey(), true));
+                                        shouldBreak.set(true);
+                                    }
+                                }
+                                return false;
+                            })) {
+                        if (entry.getValue().getValue()) {
+                            CodeGen.processTemplate(ann.get().getNameAsString(), entry.getValue().getKey());
+                            templates.remove(entry.getKey());
+                            shouldBreak.set(true);
+                        }
+                    }
+                }
+                if (shouldBreak.get()) {
+                    shouldBreak.set(false);
+                    break;
+                }
+            }
+        }
+
+        templates.forEach((name, pair) -> {
+            if (pair.getValue()) {
+                log.warn("Possible template not processed: {}", name);
+            }
+        });
     }
 
     protected void processConfigs(RoundEnvironment roundEnv) {
@@ -186,24 +260,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     protected static boolean isPrototypeTest() {
         var cls = loadClass("net.binis.codegen.test.BaseCodeGenTest");
-        if (nonNull(cls)) {
-            if (nonNull(CodeFactory.create(cls))) {
-                return true;
-            }
-        }
-        return false;
+        return nonNull(cls) && nonNull(CodeFactory.create(cls));
     }
 
     protected static boolean isElementTest() {
         var cls = loadClass("net.binis.codegen.test.BaseCodeGenElementTest");
-        if (nonNull(cls)) {
-            if (nonNull(CodeFactory.create(cls))) {
-                return true;
-            }
-        }
-        return false;
+        return nonNull(cls) && nonNull(CodeFactory.create(cls));
     }
-
 
     protected void externalLookup(RoundEnvironment roundEnv) {
         lookup.registerExternalLookup(s -> {
@@ -249,6 +312,8 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected static String calcAnnotationName(Object annotation) {
         if (annotation instanceof Class cls) {
             return cls.getSimpleName();
+        } else if ("com.sun.tools.javac.code.Symbol.ClassSymbol".equals(annotation.getClass().getCanonicalName())) {
+            return new CGSymbol(annotation).getName();
         } else {
             return "unknown";
         }
