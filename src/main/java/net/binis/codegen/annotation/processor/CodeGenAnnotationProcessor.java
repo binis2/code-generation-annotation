@@ -161,7 +161,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected void processTemplates(RoundEnvironment roundEnv, Parsables files) {
         var templates = new LinkedHashMap<String, Pair<CompilationUnit, Boolean>>();
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
-                with(readElementSource(element, null), source -> {
+                with(readElementSource(element, null, null), source -> {
                     var result = lookup.getParser().parse(source);
                     if (result.isSuccessful()) {
                         templates.put(element.toString(), Pair.of(result.getResult().get(), true));
@@ -171,9 +171,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                                 log.error("    {}:{} {}", p.getCause().map(Object::toString).orElse(""), p.getMessage(), p.getLocation().map(Object::toString).orElse("")));
                     }
                     AnnotationDiscoverer.writeTemplate(filer, element.toString());
+                    var fileName = Holder.<String>blank();
                     roundEnv.getElementsAnnotatedWith((TypeElement) element).forEach(e ->
-                            with(readElementSource(e, element), s ->
-                                    files.file(s).add(e, element)));
+                            with(readElementSource(e, element, fileName), s ->
+                                    files.file(s).add(e, element, fileName.get())));
                 }));
 
         var shouldBreak = Holder.of(false);
@@ -289,12 +290,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
-            with(readElementSource(type, cls), source ->
-                    files.file(source).add(type, cls));
+            var fileName = Holder.<String>blank();
+            with(readElementSource(type, cls, fileName), source ->
+                    files.file(source).add(type, cls, fileName.get()));
         }
     }
 
-    protected static String readElementSource(Element eType, Object annotation) {
+    protected static String readElementSource(Element eType, Object annotation, Holder<String> fileName) {
         var type = findClassType(eType);
         try {
             JavaFileObject source = Reflection.getFieldValueUnsafe(type, "sourcefile");
@@ -302,6 +304,13 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 source = Reflection.getFieldValue(type, "sourcefile");
             }
             log.info("Processing: {} ({}: {}{})", type.getSimpleName(), eType.getKind(), eType.getSimpleName().toString(), nonNull(annotation) ? " - @" + calcAnnotationName(annotation) : "");
+            if (nonNull(fileName)) {
+                try {
+                    fileName.set(source.toUri().toString());
+                } catch (Exception e) {
+                    fileName.set("<unknown>");
+                }
+            }
             return source.getCharContent(true).toString();
         } catch (Exception e) {
             log.error("Unable to process {}", type);
