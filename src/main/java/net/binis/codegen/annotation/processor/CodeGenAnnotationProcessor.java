@@ -56,6 +56,8 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.*;
 import java.lang.annotation.Annotation;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.*;
 
 import static java.util.Objects.isNull;
@@ -270,22 +272,56 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     }
 
     protected void externalLookup(RoundEnvironment roundEnv) {
+        var root = Holder.<String>blank();
+        var rootElement = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).findFirst();
+        if (rootElement.isPresent()) {
+            var source = getSourceFile(rootElement.get());
+            if (source instanceof FileObject fileObject) {
+                try {
+                    var file = new File(fileObject.toUri());
+                    while (nonNull(file.getParent())) {
+                        file = file.getParentFile();
+                        if ("java".equals(file.getName())) {
+                            root.set(file.getAbsolutePath());
+                            log.info("Sources Root: {}", root);
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    //Ignore
+                }
+            }
+        }
         lookup.registerExternalLookup(s -> {
             var ext = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast).filter(e -> e.getQualifiedName().toString().equals(s)).findFirst();
             if (ext.isPresent()) {
-                var source = Reflection.getFieldValueUnsafe(ext.get(), "sourcefile");
-                if (isNull(source)) {
-                    source = Reflection.getFieldValue(ext.get(), "sourcefile");
-                }
+                var source = getSourceFile(ext.get());
                 log.info("Accessing: {}", ext.get().getSimpleName());
                 try {
                     return ((FileObject) source).getCharContent(true).toString();
                 } catch (Exception ex) {
                     log.error("Unable to read {}", ext.get());
                 }
+            } else if (root.isPresent()) {
+                var file = new File(root.get() + '/' + s.replace(".", "/") + ".java");
+                if (file.exists()) {
+                    try {
+                        return Files.readString(file.toPath(), Charset.defaultCharset());
+                    } catch (Exception ex) {
+                        log.error("Unable to read {}", file);
+                    }
+                }
             }
             return null;
         });
+    }
+
+    protected Object getSourceFile(Element element) {
+        var source = Reflection.getFieldValueUnsafe(element, "sourcefile");
+        if (isNull(source)) {
+            return Reflection.getFieldValue(element, "sourcefile");
+        }
+        return source;
     }
 
     protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
