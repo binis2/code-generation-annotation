@@ -50,12 +50,10 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-import javax.tools.FileObject;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
+import javax.tools.*;
 import java.io.*;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Proxy;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.*;
@@ -80,6 +78,9 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected Messager messager;
     protected Map<String, String> options;
     protected List<Discoverer.DiscoveredService> discovered;
+    protected JavaFileManager fileManager;
+    protected File targetDir;
+    protected Set<String> sourceRoots;
 
     static {
         addOpensForCodeGen(true);
@@ -100,6 +101,24 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         messager = processingEnv.getMessager();
         options = processingEnv.getOptions();
         lookup.setProcessingEnvironment(processingEnv);
+        fileManager = getFileManager(processingEnv);;
+    }
+
+    protected JavaFileManager getFileManager(ProcessingEnvironment processingEnv) {
+        try {
+            JavaFileManager result = Reflection.getFieldValue(processingEnv, "fileManager");
+            if (nonNull(result)) {
+                return result;
+            }
+            //Try to get IDEA file manager
+            result = Reflection.getFieldValue(Proxy.getInvocationHandler(Reflection.getFieldValue((Object) Reflection.getFieldValue(Proxy.getInvocationHandler(processingEnv), "val$delegateTo"), "fileManager")), "val$wrapper");
+            if (nonNull(result)) {
+                return result;
+            }
+        } catch (Exception e) {
+            //Do nothing
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -161,6 +180,35 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     }
 
     protected void processTemplates(RoundEnvironment roundEnv, Parsables files) {
+        if (nonNull(targetDir) && nonNull(sourceRoots)) {
+            var file = new File(targetDir.getAbsolutePath() + "/binis/annotations");
+            if (file.exists()) {
+                AnnotationDiscoverer.findAnnotations(file).stream()
+                        .filter(Discoverer.DiscoveredService::isTemplate)
+                        .filter(a -> !Structures.defaultProperties.containsKey(a.getName()))
+                        .forEach(template ->
+                                sourceRoots.forEach(root -> with(classNameToFile(root, template.getName()), f -> {
+                                    if (f.exists()) {
+                                        try {
+                                            var source = Files.readString(f.toPath(), Charset.defaultCharset());
+                                            var result = lookup.getParser().parse(source);
+                                            if (result.isSuccessful()) {
+                                                var unit = result.getResult().get();
+                                                if (unit.getType(0) instanceof AnnotationDeclaration ann) {
+                                                    log.info("Processing template: {}", ann.getNameAsString());
+                                                    Structures.registerTemplate(ann);
+                                                }
+                                            } else {
+                                                log.error("Failed template processing ({}) with:", template.getName());
+                                            }
+                                        } catch (Exception e) {
+                                            log.error("Unable to read {}", f);
+                                        }
+                                    }
+                                })));
+            }
+        }
+
         var templates = new LinkedHashMap<String, Pair<CompilationUnit, Boolean>>();
         roundEnv.getElementsAnnotatedWith(CodePrototypeTemplate.class).forEach(element ->
                 with(readElementSource(element, null, null), source -> {
@@ -272,25 +320,50 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     }
 
     protected void externalLookup(RoundEnvironment roundEnv) {
-        var root = Holder.<String>blank();
-        var rootElement = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).findFirst();
-        if (rootElement.isPresent()) {
-            var source = getSourceFile(rootElement.get());
-            if (source instanceof FileObject fileObject) {
-                try {
-                    var file = new File(fileObject.toUri());
-                    while (nonNull(file.getParent())) {
-                        file = file.getParentFile();
-                        if ("java".equals(file.getName())) {
-                            root.set(file.getAbsolutePath());
-                            log.info("Sources Root: {}", root);
-                            break;
+        var roots = new HashSet<String>();
+        if (nonNull(fileManager)) {
+            var method = Reflection.findMethod("getLocation", fileManager.getClass(), JavaFileManager.Location.class);
+            if (nonNull(method)) {
+                if (Reflection.invoke(method, fileManager, StandardLocation.SOURCE_PATH) instanceof Iterable<?> files) {
+                    files.forEach(f -> {
+                        if (f instanceof File file) {
+                            var path = file.getAbsolutePath();
+                            roots.add(path);
+                            if (isNull(sourceRoots)) {
+                                log.info("Sources Root: {}", path);
+                            }
                         }
+                    });
+                    if (Reflection.invoke(method, fileManager, StandardLocation.CLASS_OUTPUT) instanceof Iterable<?> targets) {
+                        targetDir = (File) targets.iterator().next();
                     }
-                } catch (Exception e) {
-                    //Ignore
                 }
             }
+        }
+
+        if (roots.isEmpty()) {
+            var rootElements = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).toList();
+            rootElements.forEach(e -> {
+                var source = getSourceFile(e);
+                if (source instanceof FileObject fileObject) {
+                    try {
+                        var file = new File(fileObject.toUri());
+                        while (nonNull(file.getParent())) {
+                            file = file.getParentFile();
+                            if ("java".equals(file.getName())) {
+                                var root = file.getAbsolutePath();
+                                roots.add(root);
+                                if (isNull(sourceRoots)) {
+                                    log.info("Sources Root: {}", root);
+                                }
+                                break;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        //Ignore
+                    }
+                }
+            });
         }
         lookup.registerExternalLookup(s -> {
             var ext = roundEnv.getRootElements().stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast).filter(e -> e.getQualifiedName().toString().equals(s)).findFirst();
@@ -302,18 +375,25 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                 } catch (Exception ex) {
                     log.error("Unable to read {}", ext.get());
                 }
-            } else if (root.isPresent()) {
-                var file = new File(root.get() + '/' + s.replace(".", "/") + ".java");
-                if (file.exists()) {
-                    try {
-                        return Files.readString(file.toPath(), Charset.defaultCharset());
-                    } catch (Exception ex) {
-                        log.error("Unable to read {}", file);
+            } else if (!roots.isEmpty()) {
+                for (var root : roots) {
+                    var file = classNameToFile(root, s);
+                    if (file.exists()) {
+                        try {
+                            return Files.readString(file.toPath(), Charset.defaultCharset());
+                        } catch (Exception ex) {
+                            log.error("Unable to read {}", file);
+                        }
                     }
                 }
             }
             return null;
         });
+        sourceRoots = roots;
+    }
+
+    protected File classNameToFile(String root, String className) {
+        return new File(root + '/' + className.replace(".", "/") + ".java");
     }
 
     protected Object getSourceFile(Element element) {
