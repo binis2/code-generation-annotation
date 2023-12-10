@@ -101,7 +101,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         messager = processingEnv.getMessager();
         options = processingEnv.getOptions();
         lookup.setProcessingEnvironment(processingEnv);
-        fileManager = getFileManager(processingEnv);;
+        fileManager = getFileManager(processingEnv);
     }
 
     protected JavaFileManager getFileManager(ProcessingEnvironment processingEnv) {
@@ -390,6 +390,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             return null;
         });
         sourceRoots = roots;
+        lookup.setSourcesRoots(roots);
     }
 
     protected File classNameToFile(String root, String className) {
