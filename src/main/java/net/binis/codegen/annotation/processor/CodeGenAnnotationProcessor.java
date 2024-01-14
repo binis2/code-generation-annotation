@@ -65,7 +65,7 @@ import static net.binis.codegen.generation.core.Structures.defaultProperties;
 import static net.binis.codegen.tools.Reflection.loadClass;
 import static net.binis.codegen.tools.Tools.in;
 import static net.binis.codegen.tools.Tools.with;
-import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.addOpensForCodeGen;
+import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.*;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
@@ -307,16 +307,6 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    protected static boolean isPrototypeTest() {
-        var cls = loadClass("net.binis.codegen.test.BaseCodeGenTest");
-        return nonNull(cls) && nonNull(CodeFactory.create(cls));
-    }
-
-    protected static boolean isElementTest() {
-        var cls = loadClass("net.binis.codegen.test.BaseCodeGenElementTest");
-        return nonNull(cls) && nonNull(CodeFactory.create(cls));
     }
 
     protected void externalLookup(RoundEnvironment roundEnv) {
