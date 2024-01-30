@@ -126,6 +126,8 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             if (!processed()) {
+                var elements = new ArrayList<Element>();
+                CodeFactory.registerType(CodeFactory.class, () -> elements);
                 lookup.setRoundEnvironment(roundEnv);
                 externalLookup(roundEnv);
 
@@ -138,7 +140,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                         .map(Reflection::loadClass)
                         .filter(Objects::nonNull)
                         .forEach(cls ->
-                                processAnnotation(roundEnv, files, (Class) cls));
+                                processAnnotation(roundEnv, files, (Class) cls, elements));
 
                 if (!files.isEmpty()) {
 
@@ -395,9 +397,10 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         return source;
     }
 
-    protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls) {
+    protected void processAnnotation(RoundEnvironment roundEnv, Parsables files, Class<? extends Annotation> cls, List<Element> elements) {
         for (var type : roundEnv.getElementsAnnotatedWith(cls)) {
             var fileName = Holder.<String>blank();
+            elements.add(type);
             with(readElementSource(type, cls, fileName), source ->
                     files.file(source).add(type, cls, fileName.get()));
         }
