@@ -63,7 +63,7 @@ import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 import static net.binis.codegen.generation.core.Helpers.*;
 import static net.binis.codegen.generation.core.Structures.defaultProperties;
-import static net.binis.codegen.tools.Reflection.loadClass;
+import static net.binis.codegen.generation.core.Structures.supportedOptions;
 import static net.binis.codegen.tools.Tools.in;
 import static net.binis.codegen.tools.Tools.with;
 import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.*;
@@ -538,6 +538,11 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         result.add(CodePrototypeTemplate.class.getCanonicalName());
         result.add(CodeConfiguration.class.getCanonicalName());
         return result;
+    }
+
+    @Override
+    public Set<String> getSupportedOptions() {
+        return supportedOptions;
     }
 
     protected void error(Element e, String msg, Object... args) {
