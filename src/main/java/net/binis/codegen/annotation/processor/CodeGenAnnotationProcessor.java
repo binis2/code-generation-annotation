@@ -176,7 +176,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
             }
             if (p.getProperties().isGenerateInterface()) {
                 if (p instanceof CustomDescription desc && nonNull(desc.getPath())) {
-                    saveFile(p.getFiles().get(0), desc.getPath());
+                    saveFile(p.getFiles().get(1), desc.getPath());
                 } else {
                     saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
                 }
