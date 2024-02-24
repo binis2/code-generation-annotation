@@ -31,6 +31,7 @@ import net.binis.codegen.annotation.CodePrototypeTemplate;
 import net.binis.codegen.compiler.CGSymbol;
 import net.binis.codegen.discoverer.AnnotationDiscoverer;
 import net.binis.codegen.discovery.Discoverer;
+import net.binis.codegen.enrich.CustomDescription;
 import net.binis.codegen.exception.GenericCodeGenException;
 import net.binis.codegen.factory.CodeFactory;
 import net.binis.codegen.generation.core.Parsables;
@@ -167,14 +168,26 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected void saveParsed(PrototypeDescription<ClassOrInterfaceDeclaration> p) {
         if (isNull(p.getCompiled())) {
             if (p.getProperties().isGenerateImplementation() && isNull(p.getProperties().getMixInClass())) {
-                saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
+                if (p instanceof CustomDescription desc && nonNull(desc.getPath())) {
+                    saveFile(p.getFiles().get(0), desc.getPath());
+                } else {
+                    saveFile(p.getFiles().get(0), getBasePath(p.getProperties(), true));
+                }
             }
             if (p.getProperties().isGenerateInterface()) {
-                saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
+                if (p instanceof CustomDescription desc && nonNull(desc.getPath())) {
+                    saveFile(p.getFiles().get(0), desc.getPath());
+                } else {
+                    saveFile(p.getFiles().get(1), getBasePath(p.getProperties(), false));
+                }
             }
             with(p.getCustomFiles(), custom -> custom.forEach((name, file) -> {
                 if (nonNull(file.getJavaClass())) {
-                    saveFile(file.getJavaClass().findCompilationUnit().get(), getBasePath(p.getProperties(), true));
+                    if (p instanceof CustomDescription desc && nonNull(desc.getPath())) {
+                        saveFile(file.getJavaClass().findCompilationUnit().get(), desc.getPath());
+                    } else {
+                        saveFile(file.getJavaClass().findCompilationUnit().get(), getBasePath(p.getProperties(), true));
+                    }
                 }
                 //TODO: Save non java custom files.
             }));
