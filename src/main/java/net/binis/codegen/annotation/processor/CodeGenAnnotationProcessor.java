@@ -156,6 +156,9 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                     }
                 }
             } else {
+                if (isNull(sourceRoots)) {
+                    externalLookup(roundEnv);
+                }
                 log.debug("Prototypes already processed!");
             }
         } catch (Exception e) {
