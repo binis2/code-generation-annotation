@@ -331,6 +331,14 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
         var roots = new HashSet<String>();
         if (nonNull(fileManager)) {
             var method = Reflection.findMethod("getLocation", fileManager.getClass(), JavaFileManager.Location.class);
+            if (isNull(method)) {
+                try {
+                    var manager = Reflection.getFieldValue((Object) Reflection.getFieldValue(this.fileManager, "clientJavaFileManager"), "fileManager");
+                    method = Reflection.findMethod("getLocation", fileManager.getClass(), JavaFileManager.Location.class);
+                } catch (Exception e) {
+                    //Do nothing
+                }
+            }
             if (nonNull(method)) {
                 if (Reflection.invoke(method, fileManager, StandardLocation.SOURCE_PATH) instanceof Iterable<?> files) {
                     files.forEach(f -> {
