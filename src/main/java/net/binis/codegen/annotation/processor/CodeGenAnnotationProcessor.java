@@ -23,7 +23,6 @@ package net.binis.codegen.annotation.processor;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.AnnotationDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 import net.binis.codegen.CodeGen;
 import net.binis.codegen.annotation.CodeConfiguration;
@@ -70,7 +69,6 @@ import static net.binis.codegen.utils.CodeGenAnnotationProcessorUtils.*;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
-@AutoService(Processor.class)
 public class CodeGenAnnotationProcessor extends AbstractProcessor {
 
     protected Types typeUtils;
@@ -330,17 +328,18 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
     protected void externalLookup(RoundEnvironment roundEnv) {
         var roots = new HashSet<String>();
         if (nonNull(fileManager)) {
-            var method = Reflection.findMethod("getLocation", fileManager.getClass(), JavaFileManager.Location.class);
+            var manager = fileManager;
+            var method = Reflection.findMethod("getLocation", manager.getClass(), JavaFileManager.Location.class);
             if (isNull(method)) {
                 try {
-                    var manager = Reflection.getFieldValue((Object) Reflection.getFieldValue(this.fileManager, "clientJavaFileManager"), "fileManager");
-                    method = Reflection.findMethod("getLocation", fileManager.getClass(), JavaFileManager.Location.class);
+                    manager = Reflection.getFieldValue((Object) Reflection.getFieldValue(manager, "clientJavaFileManager"), "fileManager");
+                    method = Reflection.findMethod("getLocation", manager.getClass(), JavaFileManager.Location.class);
                 } catch (Exception e) {
                     //Do nothing
                 }
             }
             if (nonNull(method)) {
-                if (Reflection.invoke(method, fileManager, StandardLocation.SOURCE_PATH) instanceof Iterable<?> files) {
+                if (Reflection.invoke(method, manager, StandardLocation.SOURCE_PATH) instanceof Iterable<?> files) {
                     files.forEach(f -> {
                         if (f instanceof File file) {
                             var path = file.getAbsolutePath();
@@ -350,7 +349,7 @@ public class CodeGenAnnotationProcessor extends AbstractProcessor {
                             }
                         }
                     });
-                    if (Reflection.invoke(method, fileManager, StandardLocation.CLASS_OUTPUT) instanceof Iterable<?> targets) {
+                    if (Reflection.invoke(method, manager, StandardLocation.CLASS_OUTPUT) instanceof Iterable<?> targets) {
                         targetDir = (File) targets.iterator().next();
                     }
                 }
